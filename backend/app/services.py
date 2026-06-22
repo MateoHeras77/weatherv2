@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx
+
 from .cache import cache
 from .config import (
     CANSIPS_PRECIP_ABOVE,
@@ -27,18 +29,20 @@ from .geomet import normalize
 from .geomet.client import geomet
 
 
-async def raw_features() -> list[dict]:
-    """All city-page GeoJSON features (cached once; everything derives from this)."""
-    return await cache.get_or_set(
-        "stations:raw", TTL_STATIONS, lambda: geomet.get_all_items(COLL_CITYPAGE)
-    )
-
-
 async def station_summaries() -> list[dict]:
+    """Slim marker per location. Paginated + page-discarded so the full ~26 MB
+    city-page payload is never held in memory (Render free tier = 512 MB)."""
+
+    def extract(features: list[dict]) -> list[dict]:
+        out = []
+        for f in features:
+            s = normalize.station_summary(f)
+            if s is not None:
+                out.append(s.model_dump())
+        return out
+
     async def factory() -> list[dict]:
-        features = await raw_features()
-        summaries = (normalize.station_summary(f) for f in features)
-        return [s.model_dump() for s in summaries if s is not None]
+        return await geomet.map_pages(COLL_CITYPAGE, extract)
 
     return await cache.get_or_set("stations", TTL_STATIONS, factory)
 
@@ -51,42 +55,46 @@ async def alerts_all() -> dict:
     return await cache.get_or_set("alerts:all", TTL_ALERTS, factory)
 
 
-def _match_hub(features: list[dict], hub: dict) -> dict | None:
-    """Resolve a hub (name + province) to a city-page feature.
+def _resolve_hub_id(summaries: list[dict], hub: dict) -> str | None:
+    """Resolve a hub (name + province) to a station id using the slim summaries.
 
     Prefer an exact name+province match (so 'Calgary' beats 'Calgary (Olympic
     Park)' and 'Vancouver' beats 'West Vancouver'); fall back to a contains match.
     """
     target = hub["name"].strip().lower()
     province = hub.get("province")
-    fallback: dict | None = None
-    for feature in features:
-        summary = normalize.station_summary(feature)
-        if summary is None:
-            continue
-        name = summary.name.lower()
-        same_province = province is None or summary.province == province
+    fallback: str | None = None
+    for s in summaries:
+        name = (s.get("name") or "").lower()
+        same_province = province is None or s.get("province") == province
         if name == target and same_province:
-            return feature
+            return s["id"]
         if fallback is None and same_province and target in name:
-            fallback = feature
+            fallback = s["id"]
     return fallback
 
 
+async def _hub_detail(station_id: str) -> dict:
+    feature = await geomet.get_item(COLL_CITYPAGE, station_id)
+    detail = normalize.station_detail(feature).model_dump()
+    detail.pop("hourly", None)  # not needed for hub cards / trend
+    return detail
+
+
 async def hub_details() -> list[dict]:
-    """Trimmed detail (current + 7-day, no hourly) for each configured hub."""
+    """Trimmed detail (current + 7-day, no hourly) for each configured hub.
+
+    Resolves each hub to a station id via the cached slim summaries, then
+    fetches that one city's detail — a handful of small requests instead of
+    holding the full 26 MB payload."""
 
     async def factory() -> list[dict]:
-        features = await raw_features()
-        out: list[dict] = []
-        for hub in HUBS:
-            feature = _match_hub(features, hub)
-            if feature is None:
-                continue
-            detail = normalize.station_detail(feature).model_dump()
-            detail.pop("hourly", None)  # not needed for hub cards / trend
-            out.append(detail)
-        return out
+        summaries = await station_summaries()
+        ids = [sid for hub in HUBS if (sid := _resolve_hub_id(summaries, hub))]
+        details = await asyncio.gather(
+            *(_hub_detail(sid) for sid in ids), return_exceptions=True
+        )
+        return [d for d in details if isinstance(d, dict)]
 
     return await cache.get_or_set("hubs:details", TTL_BRIEFING, factory)
 
@@ -145,11 +153,9 @@ async def outlook_for_station(station_id: str) -> dict | None:
     """7-day + seasonal outlook for any single city-page station (by id)."""
 
     async def factory() -> dict | None:
-        features = await raw_features()
-        feature = next(
-            (f for f in features if str(f.get("id")) == station_id), None
-        )
-        if feature is None:
+        try:
+            feature = await geomet.get_item(COLL_CITYPAGE, station_id)
+        except httpx.HTTPStatusError:
             return None
         detail = normalize.station_detail(feature).model_dump()
         seasonal = await _seasonal_for_point(detail["lon"], detail["lat"])

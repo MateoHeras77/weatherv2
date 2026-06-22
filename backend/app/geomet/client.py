@@ -86,6 +86,31 @@ class GeoMetClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def map_pages(self, collection: str, extractor, page_limit: int = 250):
+        """Page through a collection, applying ``extractor`` to each page's
+        features and discarding the raw page immediately.
+
+        This keeps peak memory to a single page instead of the full payload —
+        city-page is ~26 MB in total, which would OOM a 512 MB instance.
+        ``extractor`` receives a list of features; its non-None results are
+        collected and returned as a flat list.
+        """
+        results: list = []
+        offset = 0
+        while True:
+            page = await self._items_page(
+                collection,
+                {"f": "json", "lang": "en", "limit": page_limit, "offset": offset},
+            )
+            features = page.get("features") or []
+            for item in extractor(features):
+                if item is not None:
+                    results.append(item)
+            if len(features) < page_limit:
+                break
+            offset += page_limit
+        return results
+
     async def get_all_items(
         self,
         collection: str,
