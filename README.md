@@ -90,6 +90,32 @@ so both run as a single origin in development.
 cd frontend && npm run build   # type-checks and bundles to dist/
 ```
 
+## Deployment
+
+Live, on free tiers:
+
+- **Frontend** → Vercel: <https://weatherv2-eta.vercel.app>
+- **Backend** → Render: <https://weatherv2-api.onrender.com>
+
+The frontend calls `/api/*` on its own origin; [`frontend/vercel.json`](frontend/vercel.json)
+**rewrites** those requests to the Render backend, so there is no CORS to manage.
+The backend service is defined as code in [`render.yaml`](render.yaml).
+
+Redeploy:
+
+```bash
+# backend — Render auto-deploys on push to GitHub (main)
+git push
+
+# frontend
+cd frontend && npx vercel deploy --prod
+```
+
+> **Free-tier note:** the Render service sleeps after ~15 min idle; the first
+> request after it wakes can take ~30–60 s (cold start + cache warmup), then
+> it's fast again. For an always-warm service, bump the Render plan or add a
+> keep-alive ping.
+
 ## Data sources
 
 All weather data © Environment and Climate Change Canada, via
