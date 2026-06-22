@@ -7,7 +7,11 @@ import App from './App'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      // The backend runs on a free tier that can cold-start (~30–50 s) after
+      // idle. Retry with backoff for ~40 s so the app self-heals (showing the
+      // "Loading…" state) instead of erroring on the first failed request.
+      retry: 5,
+      retryDelay: (attempt) => Math.min(2000 * 2 ** attempt, 12000),
       refetchOnWindowFocus: false,
     },
   },
