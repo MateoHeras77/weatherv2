@@ -124,6 +124,39 @@ def _warnings_list(warnings: Any) -> list[Warning]:
     return out
 
 
+# Highest-severity embedded alert type for a station, so the map marker ring
+# can reflect warning vs advisory vs statement (instead of "red = any alert").
+_ALERT_SEVERITY = {"warning": 3, "watch": 2, "advisory": 1, "statement": 0}
+
+
+def _alert_level(warnings: Any) -> str | None:
+    if isinstance(warnings, dict):
+        events = warnings.get("events") or warnings.get("event") or []
+        if isinstance(events, dict):
+            events = [events]
+        if not events:
+            events = [warnings]
+    elif isinstance(warnings, list):
+        events = warnings
+    else:
+        return None
+
+    best: str | None = None
+    best_rank = -1
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        kind = _text(event.get("type"))
+        if not kind:
+            continue
+        kind = kind.lower()
+        rank = _ALERT_SEVERITY.get(kind, 0)
+        if rank > best_rank:
+            best_rank = rank
+            best = kind
+    return best
+
+
 # --- summary (map / search) --------------------------------------------------
 
 
@@ -145,6 +178,7 @@ def station_summary(feature: dict) -> StationSummary | None:
         condition=_text(current.get("condition")),
         iconCode=_int(current.get("iconCode")),
         hasWarning=_has_warning(props.get("warnings")),
+        alertLevel=_alert_level(props.get("warnings")),
         observedAt=_en((current.get("timestamp") or {})),
     )
 

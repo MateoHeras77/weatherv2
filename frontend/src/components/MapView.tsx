@@ -26,7 +26,10 @@ function stationsGeoJSON(stations: StationSummary[]): GeoJSON.FeatureCollection 
         province: s.province ?? '',
         color: tempColor(s.temperature),
         tempLabel: s.temperature !== null ? `${Math.round(s.temperature)}°` : '',
-        warn: s.hasWarning,
+        // Ring reflects the highest-severity alert covering the station, so red
+        // means a warning specifically (not just "some alert").
+        ringColor: s.alertLevel ? alertTypeColor(s.alertLevel) : '#ffffff',
+        ringWidth: s.alertLevel ? (s.alertLevel === 'statement' ? 2 : 3) : 1.4,
       },
     })),
   }
@@ -189,8 +192,8 @@ export default function MapView() {
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4.5, 8, 7],
           'circle-color': ['get', 'color'],
-          'circle-stroke-color': ['case', ['get', 'warn'], '#E11B22', '#ffffff'],
-          'circle-stroke-width': ['case', ['get', 'warn'], 3, 1.4],
+          'circle-stroke-color': ['get', 'ringColor'],
+          'circle-stroke-width': ['get', 'ringWidth'],
         },
       })
       map.addLayer({
@@ -441,10 +444,16 @@ function MapLegend() {
       />
       <span>−30°</span>
       <span>+40°</span>
-      <span className="ml-2 inline-flex items-center gap-1">
-        <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-brand-red bg-white" />
-        Warning
-      </span>
+      <span className="ml-2 font-semibold text-ink">Ring</span>
+      {(['warning', 'advisory', 'statement'] as const).map((t) => (
+        <span key={t} className="inline-flex items-center gap-1 capitalize">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-full border-2 bg-white"
+            style={{ borderColor: alertTypeColor(t) }}
+          />
+          {t}
+        </span>
+      ))}
     </div>
   )
 }

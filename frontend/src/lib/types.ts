@@ -11,6 +11,7 @@ export interface StationSummary {
   condition: string | null
   iconCode: number | null
   hasWarning: boolean
+  alertLevel: string | null // warning | watch | advisory | statement | null
   observedAt: string | null
 }
 

@@ -24,6 +24,7 @@ class StationSummary(BaseModel):
     condition: str | None = None
     iconCode: int | None = None
     hasWarning: bool = False
+    alertLevel: str | None = None  # warning | watch | advisory | statement | None
     observedAt: str | None = None
 
 
