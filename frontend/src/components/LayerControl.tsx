@@ -79,7 +79,6 @@ export default function LayerControl() {
   const [open, setOpen] = useState(true)
   const showStations = useApp((s) => s.showStations)
   const showAlerts = useApp((s) => s.showAlerts)
-  const showStatements = useApp((s) => s.showStatements)
   const toggle = useApp((s) => s.toggle)
 
   const categories = (data?.layers ?? []).reduce<Record<string, WmsLayer[]>>((acc, l) => {
@@ -119,19 +118,6 @@ export default function LayerControl() {
               </div>
               <p className="mt-0.5 text-[10px] leading-snug text-ink-faint">
                 Warnings, watches & advisories — only where active.
-              </p>
-            </div>
-          )}
-          <Switch
-            on={showStatements}
-            onClick={() => toggle('showStatements')}
-            label="Special statements"
-          />
-          {showStatements && (
-            <div className="mb-1 rounded-lg bg-surface-muted px-2.5 py-1.5">
-              <LegendRow color={alertTypeColor('statement')} label="Statement" hint="informational" />
-              <p className="mt-0.5 text-[10px] leading-snug text-ink-faint">
-                Low-priority special weather statements.
               </p>
             </div>
           )}

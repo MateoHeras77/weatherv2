@@ -27,7 +27,7 @@ export default function Header() {
           <img src="/logov2.svg" alt="Purolator" className="h-5 w-auto" />
         </div>
         <div className="hidden leading-tight sm:block">
-          <div className="text-sm font-bold tracking-tight">Weather Planner</div>
+          <div className="text-sm font-bold tracking-tight">Weather</div>
           <div className="text-[11px] text-white/60">Canada · Environment Canada</div>
         </div>
       </div>

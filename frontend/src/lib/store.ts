@@ -36,8 +36,7 @@ interface AppState {
   // vector layer toggles
   showStations: boolean
   showAlerts: boolean
-  showStatements: boolean
-  toggle: (key: 'showStations' | 'showAlerts' | 'showStatements') => void
+  toggle: (key: 'showStations' | 'showAlerts') => void
 
   // WMS raster overlays
   activeOverlays: string[]
@@ -79,7 +78,6 @@ export const useApp = create<AppState>((set) => ({
 
   showStations: true,
   showAlerts: true,
-  showStatements: false,
   toggle: (key) => set((s) => ({ [key]: !s[key] }) as Partial<AppState>),
 
   activeOverlays: [],

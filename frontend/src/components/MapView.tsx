@@ -12,7 +12,7 @@ import type { AlertFeature, StationSummary } from '../lib/types'
 const STATEMENT_COLOR = alertTypeColor('statement')
 
 const CANADA_CENTER: [number, number] = [-86, 58]
-const FIRST_VECTOR_LAYER = 'statements-fill' // WMS rasters are inserted before this
+const FIRST_VECTOR_LAYER = 'alerts-fill' // WMS rasters are inserted before this
 
 function stationsGeoJSON(stations: StationSummary[]): GeoJSON.FeatureCollection {
   return {
@@ -62,7 +62,6 @@ export default function MapView() {
   const selectedStationId = useApp((s) => s.selectedStationId)
   const showStations = useApp((s) => s.showStations)
   const showAlerts = useApp((s) => s.showAlerts)
-  const showStatements = useApp((s) => s.showStatements)
   const basemap = useApp((s) => s.basemap)
   const activeOverlays = useApp((s) => s.activeOverlays)
   const overlayOpacity = useApp((s) => s.overlayOpacity)
@@ -98,27 +97,8 @@ export default function MapView() {
       map.addSource('alerts', { type: 'geojson', data: alertsFCRef.current })
     }
 
-    // Statements (informational) — drawn beneath the actionable alerts.
-    if (!map.getLayer('statements-fill')) {
-      map.addLayer({
-        id: 'statements-fill',
-        type: 'fill',
-        source: 'alerts',
-        filter: ['==', ['get', 'alertType'], 'statement'],
-        layout: { visibility: 'none' },
-        paint: { 'fill-color': STATEMENT_COLOR, 'fill-opacity': 0.16 },
-      })
-      map.addLayer({
-        id: 'statements-outline',
-        type: 'line',
-        source: 'alerts',
-        filter: ['==', ['get', 'alertType'], 'statement'],
-        layout: { visibility: 'none' },
-        paint: { 'line-color': STATEMENT_COLOR, 'line-width': 1.1, 'line-opacity': 0.8 },
-      })
-    }
-
-    // Alerts: warnings / watches / advisories (below station markers)
+    // Alerts: warnings / watches / advisories (below station markers).
+    // Statements are excluded (informational, available per-station instead).
     if (!map.getLayer('alerts-fill')) {
       map.addLayer({
         id: 'alerts-fill',
@@ -263,8 +243,6 @@ export default function MapView() {
     set('station-selected', showStations)
     set('alerts-fill', showAlerts)
     set('alerts-outline', showAlerts)
-    set('statements-fill', showStatements)
-    set('statements-outline', showStatements)
   }
 
   // Install sources/layers exactly once, only when the style is loaded AND
@@ -344,9 +322,8 @@ export default function MapView() {
         .addTo(map)
     }
     map.on('click', 'alerts-fill', showAlertPopup)
-    map.on('click', 'statements-fill', showAlertPopup)
 
-    for (const id of ['clusters', 'stations-point', 'alerts-fill', 'statements-fill']) {
+    for (const id of ['clusters', 'stations-point', 'alerts-fill']) {
       map.on('mouseenter', id, () => (map.getCanvas().style.cursor = 'pointer'))
       map.on('mouseleave', id, () => (map.getCanvas().style.cursor = ''))
     }
@@ -384,7 +361,7 @@ export default function MapView() {
     const map = mapRef.current
     if (map && installedRef.current) applyVisibility(map)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showStations, showAlerts, showStatements])
+  }, [showStations, showAlerts])
 
   useEffect(() => {
     const map = mapRef.current
