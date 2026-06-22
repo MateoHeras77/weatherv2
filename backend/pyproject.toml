@@ -1,0 +1,15 @@
+[project]
+name = "weatherv2-backend"
+version = "1.0.0"
+description = "FastAPI backend that normalizes MSC GeoMet (Environment Canada) weather data for the Weatherv2 planner dashboard"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+    "pydantic>=2.9",
+]
+
+[tool.uv]
+package = false

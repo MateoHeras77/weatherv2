@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  @apply bg-surface-muted text-ink font-sans;
+}
+
+/* MapLibre popup + control restyling to match the brand */
+.maplibregl-popup-content {
+  @apply rounded-xl shadow-panel border border-surface-line p-0;
+  font-family: inherit;
+}
+.maplibregl-popup-close-button {
+  @apply text-ink-soft text-lg pr-2 pt-1;
+}
+.maplibregl-ctrl-group {
+  @apply rounded-lg shadow-card overflow-hidden;
+}
+
+/* Thin, brand-tinted scrollbars inside panels */
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  @apply bg-surface-line rounded-full;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink-faint;
+}
+
+input[type='range'] {
+  accent-color: #0033a0;
+}
