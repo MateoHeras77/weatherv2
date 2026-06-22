@@ -66,15 +66,6 @@ WMS_LAYERS: list[dict] = [
         "defaultOpacity": 0.7,
     },
     {
-        "id": "air-temp",
-        "layer": "HRDPS.CONTINENTAL_TT",
-        "title": "Air Temperature (surface)",
-        "category": "Temperature",
-        "description": "Current near-surface air temperature (HRDPS high-resolution model).",
-        "legend": _legend("HRDPS.CONTINENTAL_TT"),
-        "defaultOpacity": 0.6,
-    },
-    {
         "id": "precip-24h",
         "layer": "GDPS_15km_Precip-Accum24h",
         "title": "Precipitation — next 24 h",
@@ -91,24 +82,6 @@ WMS_LAYERS: list[dict] = [
         "description": "Cloud-to-ground lightning density. Usually empty — only active thunderstorms appear.",
         "legend": _legend("Lightning_2.5km_Density"),
         "defaultOpacity": 0.85,
-    },
-    {
-        "id": "satellite",
-        "layer": "GOES-East_1km_NaturalColor",
-        "title": "Satellite — Natural Colour",
-        "category": "Satellite",
-        "description": "GOES-East 1 km natural-colour composite imagery.",
-        "legend": _legend("GOES-East_1km_NaturalColor"),
-        "defaultOpacity": 0.85,
-    },
-    {
-        "id": "seasonal-temp",
-        "layer": "CanSIPS_100km_AirTemp-ProbAboveNormal-2m",
-        "title": "Seasonal outlook — warmer than normal",
-        "category": "Seasonal outlook",
-        "description": "Probability that temperature runs above normal over the coming season (CanSIPS).",
-        "legend": _legend("CanSIPS_100km_AirTemp-ProbAboveNormal-2m"),
-        "defaultOpacity": 0.6,
     },
 ]
 

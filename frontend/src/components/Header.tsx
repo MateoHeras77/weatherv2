@@ -23,11 +23,8 @@ export default function Header() {
     <header className="z-20 flex items-center gap-4 bg-brand-navy px-4 py-2.5 text-white shadow-lg">
       {/* Brand */}
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-red font-black">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M3 14.5 12 4l9 10.5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="12" cy="16.5" r="2.4" fill="#fff" />
-          </svg>
+        <div className="flex h-9 items-center justify-center rounded-lg bg-white px-2.5 shadow-sm">
+          <img src="/logov2.svg" alt="Purolator" className="h-5 w-auto" />
         </div>
         <div className="hidden leading-tight sm:block">
           <div className="text-sm font-bold tracking-tight">Weather Planner</div>

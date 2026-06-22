@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
-import { useStations, useAlerts, useAqhi, useWmsLayers } from '../hooks/queries'
+import { useStations, useAlerts, useWmsLayers } from '../hooks/queries'
 import { useApp } from '../lib/store'
 import { baseStyle, wmsTileUrl } from '../lib/mapStyle'
-import { tempColor, riskColor, aqhiColor } from '../lib/weather'
-import type { AlertFeature, StationSummary, AqhiPoint } from '../lib/types'
+import { tempColor, riskColor, alertTypeColor } from '../lib/weather'
+import type { AlertFeature, StationSummary } from '../lib/types'
+
+// Statements (informational) get their own layer + toggle; everything else
+// (warning / watch / advisory) stays on the main alerts layer.
+const STATEMENT_COLOR = alertTypeColor('statement')
 
 const CANADA_CENTER: [number, number] = [-86, 58]
-const FIRST_VECTOR_LAYER = 'alerts-fill' // WMS rasters are inserted before this
+const FIRST_VECTOR_LAYER = 'statements-fill' // WMS rasters are inserted before this
 
 function stationsGeoJSON(stations: StationSummary[]): GeoJSON.FeatureCollection {
   return {
@@ -39,22 +43,6 @@ function alertsGeoJSON(features: AlertFeature[]): GeoJSON.FeatureCollection {
   }
 }
 
-function aqhiGeoJSON(points: AqhiPoint[]): GeoJSON.FeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: points.map((p) => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: {
-        location: p.location ?? '',
-        aqhi: p.aqhi,
-        label: p.aqhi !== null ? `${p.aqhi}` : '',
-        color: aqhiColor(p.aqhi),
-      },
-    })),
-  }
-}
-
 export default function MapView() {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -63,7 +51,6 @@ export default function MapView() {
 
   const { data: stationsData } = useStations()
   const { data: alertsData } = useAlerts()
-  const { data: aqhiData } = useAqhi()
   const { data: wmsData } = useWmsLayers()
 
   const flyTo = useApp((s) => s.flyTo)
@@ -72,7 +59,7 @@ export default function MapView() {
   const selectedStationId = useApp((s) => s.selectedStationId)
   const showStations = useApp((s) => s.showStations)
   const showAlerts = useApp((s) => s.showAlerts)
-  const showAqhi = useApp((s) => s.showAqhi)
+  const showStatements = useApp((s) => s.showStatements)
   const basemap = useApp((s) => s.basemap)
   const activeOverlays = useApp((s) => s.activeOverlays)
   const overlayOpacity = useApp((s) => s.overlayOpacity)
@@ -85,16 +72,13 @@ export default function MapView() {
     () => alertsGeoJSON(alertsData?.features ?? []),
     [alertsData],
   )
-  const aqhiFC = useMemo(() => aqhiGeoJSON(aqhiData?.points ?? []), [aqhiData])
 
   // Keep latest GeoJSON in refs so installLayers (registered once on map 'load')
   // always seeds sources with current data, regardless of fetch/render timing.
   const stationsFCRef = useRef(stationsFC)
   const alertsFCRef = useRef(alertsFC)
-  const aqhiFCRef = useRef(aqhiFC)
   stationsFCRef.current = stationsFC
   alertsFCRef.current = alertsFC
-  aqhiFCRef.current = aqhiFC
 
   // --- install all sources + vector layers (idempotent) ----------------------
   function installLayers(map: maplibregl.Map) {
@@ -110,54 +94,42 @@ export default function MapView() {
     if (!map.getSource('alerts')) {
       map.addSource('alerts', { type: 'geojson', data: alertsFCRef.current })
     }
-    if (!map.getSource('aqhi')) {
-      map.addSource('aqhi', { type: 'geojson', data: aqhiFCRef.current })
+
+    // Statements (informational) — drawn beneath the actionable alerts.
+    if (!map.getLayer('statements-fill')) {
+      map.addLayer({
+        id: 'statements-fill',
+        type: 'fill',
+        source: 'alerts',
+        filter: ['==', ['get', 'alertType'], 'statement'],
+        layout: { visibility: 'none' },
+        paint: { 'fill-color': STATEMENT_COLOR, 'fill-opacity': 0.16 },
+      })
+      map.addLayer({
+        id: 'statements-outline',
+        type: 'line',
+        source: 'alerts',
+        filter: ['==', ['get', 'alertType'], 'statement'],
+        layout: { visibility: 'none' },
+        paint: { 'line-color': STATEMENT_COLOR, 'line-width': 1.1, 'line-opacity': 0.8 },
+      })
     }
 
-    // Alerts (below station markers)
+    // Alerts: warnings / watches / advisories (below station markers)
     if (!map.getLayer('alerts-fill')) {
       map.addLayer({
         id: 'alerts-fill',
         type: 'fill',
         source: 'alerts',
+        filter: ['!=', ['get', 'alertType'], 'statement'],
         paint: { 'fill-color': ['get', 'fillColor'], 'fill-opacity': 0.22 },
       })
-    }
-    if (!map.getLayer('alerts-outline')) {
       map.addLayer({
         id: 'alerts-outline',
         type: 'line',
         source: 'alerts',
+        filter: ['!=', ['get', 'alertType'], 'statement'],
         paint: { 'line-color': ['get', 'fillColor'], 'line-width': 1.4, 'line-opacity': 0.9 },
-      })
-    }
-
-    // AQHI badges
-    if (!map.getLayer('aqhi-circle')) {
-      map.addLayer({
-        id: 'aqhi-circle',
-        type: 'circle',
-        source: 'aqhi',
-        layout: { visibility: 'none' },
-        paint: {
-          'circle-radius': 11,
-          'circle-color': ['get', 'color'],
-          'circle-opacity': 0.92,
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1.5,
-        },
-      })
-      map.addLayer({
-        id: 'aqhi-label',
-        type: 'symbol',
-        source: 'aqhi',
-        layout: {
-          visibility: 'none',
-          'text-field': ['get', 'label'],
-          'text-size': 11,
-          'text-font': ['Noto Sans Bold'],
-        },
-        paint: { 'text-color': '#ffffff' },
       })
     }
 
@@ -288,8 +260,8 @@ export default function MapView() {
     set('station-selected', showStations)
     set('alerts-fill', showAlerts)
     set('alerts-outline', showAlerts)
-    set('aqhi-circle', showAqhi)
-    set('aqhi-label', showAqhi)
+    set('statements-fill', showStatements)
+    set('statements-outline', showStatements)
   }
 
   // Install sources/layers exactly once, only when the style is loaded AND
@@ -349,12 +321,13 @@ export default function MapView() {
       flyTo(lon, lat, id)
     })
 
-    // alert popup
-    map.on('click', 'alerts-fill', (e) => {
+    // alert / statement popup
+    const showAlertPopup = (e: maplibregl.MapLayerMouseEvent) => {
       const f = e.features?.[0]
       if (!f) return
       const p = f.properties as Record<string, string>
-      const colour = riskColor(p.riskColour)
+      const colour =
+        p.alertType === 'statement' ? STATEMENT_COLOR : riskColor(p.riskColour)
       popup
         .setLngLat(e.lngLat)
         .setHTML(
@@ -366,9 +339,11 @@ export default function MapView() {
            </div>`,
         )
         .addTo(map)
-    })
+    }
+    map.on('click', 'alerts-fill', showAlertPopup)
+    map.on('click', 'statements-fill', showAlertPopup)
 
-    for (const id of ['clusters', 'stations-point', 'alerts-fill']) {
+    for (const id of ['clusters', 'stations-point', 'alerts-fill', 'statements-fill']) {
       map.on('mouseenter', id, () => (map.getCanvas().style.cursor = 'pointer'))
       map.on('mouseleave', id, () => (map.getCanvas().style.cursor = ''))
     }
@@ -401,19 +376,12 @@ export default function MapView() {
     }
   }, [alertsFC])
 
-  useEffect(() => {
-    const map = mapRef.current
-    if (map && installedRef.current) {
-      ;(map.getSource('aqhi') as GeoJSONSource | undefined)?.setData(aqhiFC)
-    }
-  }, [aqhiFC])
-
   // --- toggles / overlays -----------------------------------------------------
   useEffect(() => {
     const map = mapRef.current
     if (map && installedRef.current) applyVisibility(map)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showStations, showAlerts, showAqhi])
+  }, [showStations, showAlerts, showStatements])
 
   useEffect(() => {
     const map = mapRef.current

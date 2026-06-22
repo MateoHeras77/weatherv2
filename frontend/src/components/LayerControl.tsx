@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { useWmsLayers } from '../hooks/queries'
 import { useApp } from '../lib/store'
 import type { WmsLayer } from '../lib/types'
-import { AQHI_BANDS, alertTypeColor } from '../lib/weather'
+import { alertTypeColor } from '../lib/weather'
 
 const ALERT_LEGEND = [
   { type: 'warning', label: 'Warning' },
   { type: 'watch', label: 'Watch' },
   { type: 'advisory', label: 'Advisory' },
-  { type: 'statement', label: 'Statement' },
 ]
 
 function LegendRow({ color, label, hint }: { color: string; label: string; hint?: string }) {
@@ -80,7 +79,7 @@ export default function LayerControl() {
   const [open, setOpen] = useState(true)
   const showStations = useApp((s) => s.showStations)
   const showAlerts = useApp((s) => s.showAlerts)
-  const showAqhi = useApp((s) => s.showAqhi)
+  const showStatements = useApp((s) => s.showStatements)
   const toggle = useApp((s) => s.toggle)
 
   const categories = (data?.layers ?? []).reduce<Record<string, WmsLayer[]>>((acc, l) => {
@@ -119,18 +118,20 @@ export default function LayerControl() {
                 ))}
               </div>
               <p className="mt-0.5 text-[10px] leading-snug text-ink-faint">
-                Shown only where a hazard is currently active.
+                Warnings, watches & advisories — only where active.
               </p>
             </div>
           )}
-          <Switch on={showAqhi} onClick={() => toggle('showAqhi')} label="Air quality (AQHI)" />
-          {showAqhi && (
+          <Switch
+            on={showStatements}
+            onClick={() => toggle('showStatements')}
+            label="Special statements"
+          />
+          {showStatements && (
             <div className="mb-1 rounded-lg bg-surface-muted px-2.5 py-1.5">
-              {AQHI_BANDS.map((b) => (
-                <LegendRow key={b.label} color={b.color} label={b.label} hint={b.range} />
-              ))}
+              <LegendRow color={alertTypeColor('statement')} label="Statement" hint="informational" />
               <p className="mt-0.5 text-[10px] leading-snug text-ink-faint">
-                Air Quality Health Index — higher = greater health risk.
+                Low-priority special weather statements.
               </p>
             </div>
           )}
